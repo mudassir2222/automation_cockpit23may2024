@@ -40,7 +40,7 @@ jobs:
           jdkDirectory: '$(JAVA_HOME)'  # Set the JAVA_HOME from pipeline variable
           mavenVersionOption: 'Path'
           mavenDirectory: '/usr'
-          options: '-X'  # Enable debug output
+          options: ''  # Removed -X for less verbose output
         displayName: 'Build Maven Project'
 
       # Step 5: Verify JAR File Generation
