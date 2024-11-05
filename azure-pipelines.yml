@@ -12,55 +12,60 @@ jobs:
       DATE_TAG: $(Build.BuildId)  # Use Azure DevOps Build ID as a tag
 
     steps:
+      # Step 1: Set Docker socket permissions
       - script: |
           sudo chmod 666 /var/run/docker.sock
         displayName: 'Set Docker socket permissions'
 
+      # Step 2: Set JAVA_HOME correctly
       - script: |
-          echo "##vso[task.setvariable variable=JAVA_HOME]/usr/bin/java/openjdk version "11.0.24" 2024-07-16"
+          echo "##vso[task.setvariable variable=JAVA_HOME]/usr/lib/jvm/java-11-openjdk-amd64"
+          echo "JAVA_HOME is set to: $(JAVA_HOME)"
         displayName: 'Set JAVA_HOME'
 
-      - script: |
-          echo "JAVA_HOME is set to: $(JAVA_HOME)"
-        displayName: 'Print JAVA_HOME'
-
+      # Step 3: Print Maven Path and verify Maven installation
       - script: |
           echo "Maven Path: $(which mvn)"
-          echo "##vso[task.setvariable variable=MAVEN_PATH]$(which mvn)"
-          mvn -v
+          echo "JAVA_HOME is: $(JAVA_HOME)"
+          mvn -v  # Verify Maven is correctly installed
         displayName: 'Verify Maven Installation'
 
+      # Step 4: Build the Maven Project
       - task: Maven@4
         inputs:
           mavenPomFile: 'automation/pom.xml'
           publishJUnitResults: true
           goals: 'clean install -DskipTests'
           javaHomeOption: 'Path'
-          jdkDirectory: '$(JAVA_HOME)'
+          jdkDirectory: '$(JAVA_HOME)'  # Set the JAVA_HOME from pipeline variable
           mavenVersionOption: 'Path'
           mavenDirectory: '/usr'
           options: '-X'  # Enable debug output
+        displayName: 'Build Maven Project'
 
+      # Step 5: Verify JAR File Generation
       - script: |
           echo "Contents of target directory:"
           ls -l automation/target/
         displayName: 'Verify JAR File Generation'
 
-      # Step to build the Docker image
+      # Step 6: Build Docker Image
       - script: |
           echo "Building Docker image with tag: ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}-${DATE_TAG}"
           docker build -t "${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}-${DATE_TAG}" -f automation/Dockerfile automation
         displayName: 'Build Docker Image'
 
+      # Step 7: List Docker Images
       - script: |
           echo "Listing Docker images:"
           docker images
         displayName: 'List Docker Images'
 
+      # Step 8: Push Docker Image to Docker Hub
       - task: Docker@2
         displayName: 'Push Docker Image to Docker Hub'
         inputs:
           command: 'push'
-          containerRegistry: 'md-service-connection-docker'  # Replace with the name of your Docker service connection in Azure DevOps
+          containerRegistry: 'md-service-connection-docker'  # Replace with the name of your Docker service connection
           repository: "$(DOCKER_REGISTRY)/$(DOCKER_IMAGE_NAME)"
           tags: "$(DOCKER_IMAGE_TAG)-$(DATE_TAG)"
