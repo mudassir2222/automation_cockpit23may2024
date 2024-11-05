@@ -1,36 +1,66 @@
-trigger:
-  branches:
-    include:
-      - main  # Adjust this to the branch you want to trigger the pipeline for (e.g., 'main')
+jobs:
+  - job: Build
+    displayName: 'Build Java Application'
+    pool:
+      name: 'Default'
 
-pool:
-  vmImage: 'ubuntu-latest'  # Using the latest Ubuntu image for the pipeline
+    variables:
+      DOCKER_BUILDKIT: '1'
+      DOCKER_REGISTRY: 'mudassir376'  # Replace with your Docker Hub username
+      DOCKER_IMAGE_NAME: 'automate'  # Replace with your image name
+      DOCKER_IMAGE_TAG: 'latest'
+      DATE_TAG: $(Build.BuildId)  # Use Azure DevOps Build ID as a tag
 
-variables:
-  imageName: 'mudassir2222/automation_cockpit23may2024'  # Your Docker Hub repository and image name
-  tag: 'latest'  # Tag the Docker image
+    steps:
+      - script: |
+          sudo chmod 666 /var/run/docker.sock
+        displayName: 'Set Docker socket permissions'
 
-steps:
-# Step 1: Checkout the code from GitHub
-- task: Checkout@1
-  displayName: 'Checkout code'
+      - script: |
+          echo "##vso[task.setvariable variable=JAVA_HOME]/usr/bin/java/openjdk version "11.0.24" 2024-07-16"
+        displayName: 'Set JAVA_HOME'
 
-# Step 2: Build the Maven project
-- task: CommandLine@2
-  inputs:
-    script: |
-      mvn clean install -DskipTests  # Build the Maven project, skipping tests for speed
-  displayName: 'Build Maven Project'
+      - script: |
+          echo "JAVA_HOME is set to: $(JAVA_HOME)"
+        displayName: 'Print JAVA_HOME'
 
-# Step 3: Build the Docker Image
-- task: Docker@2
-  inputs:
-    command: 'buildAndPush'
-    containerRegistry: 'DockerHubConnection'  # Name of the Docker Hub connection you set up earlier
-    repository: $(imageName)  # The Docker Hub repository (mudassir2222/automation_cockpit23may2024)
-    dockerfile: '$(Build.SourcesDirectory)/Dockerfile'  # Path to the Dockerfile
-    buildContext: '$(Build.SourcesDirectory)'  # Context for the Docker build (root of the repository)
-    tags: |
-      $(tag)  # Use the 'latest' tag (or any dynamic tag you want)
-  displayName: 'Build and Push Docker Image'
+      - script: |
+          echo "Maven Path: $(which mvn)"
+          echo "##vso[task.setvariable variable=MAVEN_PATH]$(which mvn)"
+          mvn -v
+        displayName: 'Verify Maven Installation'
 
+      - task: Maven@4
+        inputs:
+          mavenPomFile: 'automation/pom.xml'
+          publishJUnitResults: true
+          goals: 'clean install -DskipTests'
+          javaHomeOption: 'Path'
+          jdkDirectory: '$(JAVA_HOME)'
+          mavenVersionOption: 'Path'
+          mavenDirectory: '/usr'
+          options: '-X'  # Enable debug output
+
+      - script: |
+          echo "Contents of target directory:"
+          ls -l automation/target/
+        displayName: 'Verify JAR File Generation'
+
+      # Step to build the Docker image
+      - script: |
+          echo "Building Docker image with tag: ${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}-${DATE_TAG}"
+          docker build -t "${DOCKER_REGISTRY}/${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}-${DATE_TAG}" -f automation/Dockerfile automation
+        displayName: 'Build Docker Image'
+
+      - script: |
+          echo "Listing Docker images:"
+          docker images
+        displayName: 'List Docker Images'
+
+      - task: Docker@2
+        displayName: 'Push Docker Image to Docker Hub'
+        inputs:
+          command: 'push'
+          containerRegistry: 'md-service-connection-docker'  # Replace with the name of your Docker service connection in Azure DevOps
+          repository: "$(DOCKER_REGISTRY)/$(DOCKER_IMAGE_NAME)"
+          tags: "$(DOCKER_IMAGE_TAG)-$(DATE_TAG)"
