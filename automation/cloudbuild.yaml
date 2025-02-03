@@ -1,0 +1,41 @@
+steps:
+  # Step 1: Build backend image using Docker Compose
+  - name: 'docker/compose:1.29.2'
+    args: ['build']
+  
+  # Step 2: Tag the backend image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'tag'
+      - 'automation-backend:latest'
+      - 'gcr.io/mydemo-448610/automation-backend:latest'
+  
+  # Step 3: Push the backend image to GCR
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/mydemo-448610/automation-backend:latest'
+  
+  # Step 4: Apply Kubernetes configurations
+  - name: 'gcr.io/cloud-builders/kubectl'
+    args:
+      - 'apply'
+      - '-f'
+      - 'mysql-deployment.yaml'
+    env:
+      - 'CLOUDSDK_COMPUTE_ZONE=us-central1-c'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=my-first-gcp-cluster'
+
+  - name: 'gcr.io/cloud-builders/kubectl'
+    args:
+      - 'apply'
+      - '-f'
+      - 'backend-deployment.yaml'
+    env:
+      - 'CLOUDSDK_COMPUTE_ZONE=us-central1-c'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=my-first-gcp-cluster'
+
+# Define image substitution if needed (optional)
+images:
+  - 'gcr.io/mydemo-448610/automation-backend:latest'
+

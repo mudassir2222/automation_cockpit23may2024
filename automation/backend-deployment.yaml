@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: gcr.io/mydemo-448610/automation-backend:latest
+        ports:
+        - containerPort: 9082
+        env:
+        - name: DB_HOST
+          value: mysql
+        - name: MYSQL_ROOT_PASSWORD
+          value: "root"
+        - name: MYSQL_DATABASE
+          value: "automation5"
+        - name: SPRING_PROFILES_ACTIVE
+          value: docker
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  ports:
+  - port: 9082
+    targetPort: 9082
+  selector:
+    app: backend
+  type: LoadBalancer
+
