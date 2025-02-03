@@ -1,0 +1,40 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: mysql-container
+    restart: on-failure
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: automation5
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - my-network
+
+  backend:
+    build:
+      context: ./  # Path to your Dockerfile
+    container_name: corelatest-container
+    restart: on-failure
+    ports:
+      - "9082:9082"
+    environment:
+      DB_HOST: db
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: automation5
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/automation5?createDatabaseIfNotExist=true&useUnicode=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+    networks:
+      - my-network
+
+networks:
+  my-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+
